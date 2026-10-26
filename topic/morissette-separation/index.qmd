@@ -15,6 +15,14 @@ jupyter: python3
 
 ## Motivation
 
+- A logistic model can fit the data perfectly and still be useless.
+- Warning signs: huge coefficients, enormous standard errors, or a
+  convergence warning.
+- It tends to appear with small samples, rare outcomes, or a category
+  where every row has the same outcome.
+- The estimates cannot be trusted or interpreted, so we need to know why
+  it happens and how to fix it.
+
 ## Main idea
 
 ## Worked example
