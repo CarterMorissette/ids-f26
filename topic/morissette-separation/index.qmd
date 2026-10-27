@@ -41,6 +41,48 @@ $$\log\frac{p}{1-p} = \beta_0 + \beta_1 x$$
  
 ## Worked example
 
+Simulated data: 40 students, and everyone above 5 hours passes.
+
+```{python}
+#| echo: true
+import numpy as np
+import pandas as pd
+
+rng = np.random.default_rng(3255)
+hours = rng.uniform(0, 10, 40).round(2)
+df = pd.DataFrame({"hours": hours, "passed": (hours > 5).astype(int)})
+df.groupby("passed")["hours"].agg(["count", "min", "max"])
+```
+
+Every student who failed studied less than every student who passed.
+
+## What it looks like
+
+```{python}
+#| echo: false
+#| fig-cap: "Passing is fully determined by hours studied."
+#| fig-alt: "Scatter plot of hours studied against pass or fail, with a dashed line separating the two groups."
+import matplotlib.pyplot as plt
+
+BLUE, ORANGE, MUTED = "#2a78d6", "#eb6834", "#898781"
+gap = (df.loc[df["passed"] == 0, "hours"].max()
+       + df.loc[df["passed"] == 1, "hours"].min()) / 2
+
+fig, ax = plt.subplots(figsize=(8, 3))
+ax.scatter(df["hours"], df["passed"],
+           c=np.where(df["passed"] == 1, BLUE, ORANGE),
+           s=40, edgecolor="white", linewidth=0.8)
+ax.axvline(gap, color=MUTED, linestyle="--", linewidth=1)
+ax.text(gap + 0.1, 0.5, "no overlap: one cut\nsplits the groups",
+        color="#52514e", va="center")
+ax.set(xlabel="Hours studied", ylabel="Passed", yticks=[0, 1],
+       yticklabels=["No", "Yes"])
+ax.spines[["top", "right"]].set_visible(False)
+plt.show()
+```
+
+Any cutoff between 4.93 and 5.53 hours is a perfect classifier.
+
 ## Interpretation
 
 ## Fixes
