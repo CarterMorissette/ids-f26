@@ -25,6 +25,20 @@ jupyter: python3
 
 ## Main idea
 
+Logistic regression models the log-odds of an outcome:
+
+$$\log\frac{p}{1-p} = \beta_0 + \beta_1 x$$
+
+- The coefficients are chosen to maximize the likelihood of the data.
+- **Complete separation:** the predictors split the 0s from the 1s
+  with no overlap.
+- Then the likelihood keeps rising as the coefficients grow, so no
+  maximum exists (Albert and Anderson, 1984).
+- **Quasi-complete separation:** the groups tie at the boundary, for
+  example a category where every row has the same outcome.
+- Basics: [Chapter 9 of the
+  course book](https://statds.github.io/ids-book/09-modeling.html).
+ 
 ## Worked example
 
 ## Interpretation
