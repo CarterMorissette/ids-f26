@@ -23,6 +23,9 @@ jupyter: python3
 - The estimates cannot be trusted or interpreted, so we need to know why
   it happens and how to fix it.
 
+**In plain English:** a model can look perfect and still tell you
+nothing useful.
+
 ## Main idea
 
 Logistic regression models the log-odds of an outcome:
@@ -38,7 +41,12 @@ $$\log\frac{p}{1-p} = \beta_0 + \beta_1 x$$
   example a category where every row has the same outcome.
 - Basics: [Chapter 9 of the
   course book](https://statds.github.io/ids-book/09-modeling.html).
- 
+
+**In plain English:** if one cutoff splits the groups perfectly, the
+model keeps "improving" by getting steeper and never settles on an
+answer.
+
+
 ## Worked example
 
 Simulated data: 40 students, and everyone above 5 hours passes.
@@ -55,6 +63,9 @@ df.groupby("passed")["hours"].agg(["count", "min", "max"])
 ```
 
 Every student who failed studied less than every student who passed.
+
+**In plain English:** we made up 40 students. Studying more than 5
+hours always means passing.
 
 ## What it looks like
 
@@ -83,7 +94,85 @@ plt.show()
 
 Any cutoff between 4.93 and 5.53 hours is a perfect classifier.
 
+**In plain English:** one line on the chart puts every student on the
+correct side.
+
 ## Interpretation
+
+```{python}
+#| echo: true
+import statsmodels.api as sm
+
+X = sm.add_constant(df[["hours"]])
+fit = sm.Logit(df["passed"], X).fit(disp=False)
+print(fit.summary().tables[1])
+print("Training accuracy:", ((fit.predict(X) > 0.5) == df["passed"]).mean())
+```
+
+- Every student is classified correctly, yet the slope's standard error
+  is over 10,000 and p is near 1.
+- statsmodels warns that the optimization did not converge.
+- Perfect predictions plus absurd uncertainty are the signature of
+  separation.
+
+**In plain English:** the model gets every student right but says it
+has no idea how big the effect is.
+
+## Why it fails
+
+```{python}
+#| echo: false
+#| fig-cap: "With separation, the slope has no finite best value."
+#| fig-alt: "Left: the estimated slope keeps rising as more iterations are allowed. Right: the log-likelihood rises toward zero as the slope grows but never reaches it."
+import warnings
+
+iters = [3, 4, 6, 8, 10, 15, 25, 35]
+coefs = []
+for k in iters:
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        res = sm.Logit(df["passed"], X).fit(maxiter=k, disp=False)
+    coefs.append(res.params["hours"])
+
+slopes = np.linspace(0.2, 30, 200)
+def loglik(b):
+    z = b * (df["hours"] - gap)
+    return np.sum(df["passed"] * z - np.logaddexp(0, z))
+ll = [loglik(b) for b in slopes]
+
+fig, (a1, a2) = plt.subplots(1, 2, figsize=(10, 3.4))
+a1.plot(iters, coefs, color=BLUE, linewidth=2, marker="o", markersize=5)
+a1.set(xlabel="Iterations allowed", ylabel="Estimated slope",
+       title="The estimate never settles")
+a2.plot(slopes, ll, color=BLUE, linewidth=2)
+a2.axhline(0, color=MUTED, linestyle="--", linewidth=1)
+a2.text(15, -2.5, "highest possible value (0)", color="#52514e", ha="center")
+a2.set(xlabel="Slope", ylabel="Log-likelihood",
+       title="The likelihood only keeps climbing")
+for a in (a1, a2):
+    a.spines[["top", "right"]].set_visible(False)
+fig.tight_layout()
+plt.show()
+```
+
+- Allow more iterations and the slope just keeps growing.
+- The log-likelihood approaches 0, its upper limit, but never reaches it.
+- So the reported estimate reflects where the optimizer stopped, not the data.
+
+**In plain English:** the model's "best" slope keeps growing, so the
+number it prints just depends on when it gave up.
+
+## Spotting separation
+
+- Warnings: a convergence warning, or huge coefficients.
+- Standard errors in the thousands and p-values near 1.
+- Perfect (or nearly perfect) accuracy on the training data.
+- Estimates that change a lot with the solver or iteration limit.
+- For a categorical predictor, a zero cell in
+  `pd.crosstab(predictor, outcome)`.
+
+**In plain English:** if the model looks too good and the uncertainty
+looks absurd, check for separation.
 
 ## Fixes
 
