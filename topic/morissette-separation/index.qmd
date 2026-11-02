@@ -56,7 +56,8 @@ your odds of passing.
 - The model keeps making its curve steeper and never finds a best slope.
   - A steeper curve pushes predictions closer to 0% or 100%. With no
       student on the wrong side, steeper is always better.
-- Categories can do it too: a group where everyone passed.
+- Categories can do it too. Say students are in four study groups
+  (A to D), and everyone in group D passed.
 
 **In plain English:** the model chases a perfect fit and never stops.
 
@@ -206,43 +207,52 @@ looks absurd, check for separation.
 
 ## Fixes
 
-**Fix 1: add a penalty.** It tells the model not to get extreme.
+**Fix 1: add a penalty.** It puts a price on steep curves.
 
+::: {.columns}
+::: {.column width="38%"}
+- `C` sets the price.
+- **Smaller C = bigger price = flatter curve.**
+- With no price, the slope keeps growing.
+:::
+::: {.column width="62%"}
 ```{python}
 #| echo: false
-#| fig-cap: "Smaller C means a stronger penalty and a flatter curve."
-#| fig-alt: "Predicted pass probability against hours studied for four penalty strengths; the curve gets steeper as the penalty weakens."
+#| fig-alt: "Chance of passing against hours studied for four penalty strengths; the curve gets steeper as the penalty weakens."
 from sklearn.linear_model import LogisticRegression
 
 grid = pd.DataFrame({"hours": np.linspace(0, 10, 200)})
 shades = {0.1: "#6da7ec", 1: "#2a78d6", 100: "#184f95", np.inf: "#0d366b"}
-fig, ax = plt.subplots(figsize=(8, 3.1))
-ax.scatter(df["hours"], df["passed"], c=MUTED, s=22, alpha=0.7)
-for c, col in shades.items():
-    m = LogisticRegression(C=c, max_iter=10_000)
-    m.fit(df[["hours"]], df["passed"])
-    slope = m.coef_[0][0]
-    if np.isinf(c):
-        label = "no penalty: slope keeps growing"
-    elif c == 1:
-        label = f"C = 1 (default): slope {slope:.1f}"
-    else:
-        label = f"C = {c:g}: slope {slope:.1f}"
-    ax.plot(grid["hours"], m.predict_proba(grid)[:, 1],
-            color=col, linewidth=2, label=label)
-ax.legend(frameon=False, loc="center right")
-ax.set(xlabel="Hours studied", ylabel="Predicted P(pass)")
-ax.spines[["top", "right"]].set_visible(False)
-plt.show()
+with plt.rc_context({"font.size": 13}):
+    fig, ax = plt.subplots(figsize=(9.4, 4.4))
+    ax.scatter(df["hours"], df["passed"], c=MUTED, s=30, alpha=0.7)
+    for c, col in shades.items():
+        m = LogisticRegression(C=c, max_iter=10_000)
+        m.fit(df[["hours"]], df["passed"])
+        slope = m.coef_[0][0]
+        if np.isinf(c):
+            label = "no penalty: slope keeps growing"
+        elif c == 1:
+            label = f"C = 1 (default): slope {slope:.1f}"
+        else:
+            label = f"C = {c:g}: slope {slope:.1f}"
+        ax.plot(grid["hours"], m.predict_proba(grid)[:, 1],
+                color=col, linewidth=2.5, label=label)
+    ax.legend(frameon=False, loc="lower right")
+    ax.set(xlabel="Hours studied", ylabel="Chance of passing")
+    ax.spines[["top", "right"]].set_visible(False)
+    plt.show()
 ```
+:::
+:::
 
-**In plain English:** a penalty keeps the slope in check. The cost is
-that estimates shrink toward zero.
+**In plain English:** a penalty is a price on steepness. The cost is
+that the slope gets pulled toward zero.
 
 ## Merge categories
 
-**Fix 2: merge sparse categories.** Group D had 15 passes and no
-failures.
+**Fix 2: merge sparse categories.** Back to the four study groups
+(made-up data). Group D had no failures.
 
 ```{python}
 #| echo: false
@@ -261,23 +271,48 @@ d["merged"] = d["group"].replace({"C": "C or D", "D": "C or D"})
 m2 = smf.logit("passed ~ C(merged)", data=d).fit(disp=False)
 c1, s1 = m1.params["C(group)[T.D]"], m1.bse["C(group)[T.D]"]
 c2, s2 = m2.params["C(merged)[T.C or D]"], m2.bse["C(merged)[T.C or D]"]
+n = pd.crosstab(d["passed"], d["group"])
 
 print(f"""
-| | Coef | Std err |
-|:-------------|------:|------:|
-| Before: group D | {c1:.1f} | {s1:,.0f} |
-| After: C and D together | {c2:.1f} | {s2:.1f} |
+| Study group | A | B | C | D |
+|:-------|--:|--:|--:|--:|
+| Passed | {n.loc[1, "A"]} | {n.loc[1, "B"]} | {n.loc[1, "C"]} | {n.loc[1, "D"]} |
+| Failed | {n.loc[0, "A"]} | {n.loc[0, "B"]} | {n.loc[0, "C"]} | {n.loc[0, "D"]} |
+
+- **Problem:** D has no failures. Its effect vs group A is {c1:.1f},
+  std err {s1:,.0f}.
+- **Fix:** treat C and D as one group. The effect is {c2:.1f},
+  std err {s2:.1f}.
 """)
 ```
 
-- Cost: you can no longer tell C from D.
-
-**In plain English:** combine group D with a similar group and the
-numbers become reasonable again.
+**In plain English:** if one group has no failures, combine it with a
+similar group so the numbers make sense again.
 
 ## Limitations
 
+- A penalty pulls the slope toward zero, and the answer depends on the
+  `C` you pick.
+- After a penalty, the usual std errors and p-values no longer mean
+  what they normally do.
+- Merging groups throws away detail. Pick groups that make sense in
+  real life, not ones that just fix the numbers.
+- With small samples, separation can happen by chance.
+
+**In plain English:** every fix changes the answer a little, so say
+what you changed and why.
+
 ## Takeaways
+
+1. A perfect fit with huge uncertainty usually means separation, not a
+   great model.
+2. Under separation, the printed slope is just where the computer
+   stopped. Do not trust it.
+3. Fix it with a penalty or by merging sparse groups, and say what the
+   fix costs.
+
+**In plain English:** too perfect plus huge uncertainty means
+something is wrong. Fix it, and say what the fix cost.
 
 ## Sources {.smaller}
 
