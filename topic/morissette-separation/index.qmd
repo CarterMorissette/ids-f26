@@ -47,8 +47,6 @@ at UConn (graduating May 2027)
 - It gives a probability, like "80% chance of passing".
 - Basics: [Chapter 9](https://statds.github.io/ids-book/09-modeling.html).
 
-**In plain English:** it turns numbers into a chance of yes or no.
-
 ## The model
 
 Logistic regression models the log-odds of an outcome:
@@ -62,8 +60,6 @@ where $p$ is the chance of passing and $x$ is hours studied.
   odds by $\exp(\beta_1)$.
 - Odds compare the chance of passing to the chance of failing.
 
-**In plain English:** the slope says how much each extra hour changes
-your odds of passing.
 
 ## What is perfect separation?
 
