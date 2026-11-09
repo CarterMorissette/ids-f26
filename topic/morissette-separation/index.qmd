@@ -66,10 +66,10 @@ where $p$ is the chance of passing and $x$ is hours studied.
 - **Complete separation:** one cutoff splits the outcomes perfectly.
   Everyone who studied over 5 hours passed. Everyone under 5 failed.
     - The curve can always get steeper, so there is no best slope.
-- **Quasi-complete separation:** one group has only one outcome, and the
-  other groups are mixed. Say (made-up data) students are in four study
-  groups, A to D, and everyone in group D passed.
-    - Group D's coefficient has no finite best value.
+- **Quasi-complete separation:** a split that is perfect for part of the
+  data, with the rest mixed.
+    - Example (made-up data): four study groups, A to D. Everyone in
+      group D passed, so D's coefficient has no finite best value.
 - Either way, no finite best estimate exists [@albert1984existence].
 
 **In plain English:** the model chases a perfect fit and never stops.
@@ -107,7 +107,8 @@ passed (1).
 ```{python}
 #| echo: false
 #| fig-cap: "Passing is fully determined by hours studied."
-#| fig-alt: "Scatter plot of hours studied against pass or fail, with a dashed line separating the two groups."
+#| fig-alt: "Scatter plot of hours studied against pass or fail, with a \
+#| dashed line separating the two groups."
 import matplotlib.pyplot as plt
 
 BLUE, ORANGE, MUTED = "#2a78d6", "#eb6834", "#898781"
@@ -175,7 +176,7 @@ se = fit.bse["hours"]
 ci_lo, ci_hi = fit.conf_int().loc["hours"]
 p = fit.pvalues["hours"]
 cut = -fit.params["const"] / b
-mag = round(np.log10(np.exp(b)))
+mag = round(b / np.log(10))
 
 print(f"""
 - **Slope ({b:.1f}):** each extra hour would multiply the odds of
@@ -186,9 +187,9 @@ print(f"""
   Wald test breaks down here.
 - The optimizer stopped at {b:.1f}. That is not a finite best estimate.
 
-**In plain English:** the model finds the cutoff (about {cut:.1f} hours)
-but not how steep the curve is, so do not trust the slope, interval, or
-p-value.
+**In plain English:** any cutoff between {lo:.2f} and {hi:.2f} hours
+works, so the printed {cut:.1f} is arbitrary. Do not trust the cutoff,
+slope, interval, or p-value.
 """)
 ```
 
@@ -197,8 +198,12 @@ p-value.
 
 ```{python}
 #| echo: false
-#| fig-cap: 'Left: the estimate keeps growing as more iterations are allowed. Right: the log-likelihood along the path with intercept $-b \times \mathrm{gap}$, not a profile likelihood.'
-#| fig-alt: "Left: the estimated slope keeps rising as more iterations are allowed. Right: the log-likelihood rises toward zero as the slope grows but never reaches it."
+#| fig-cap: 'Left: the estimate keeps growing as more iterations are
+#| allowed. Right: the log-likelihood along the path with intercept
+#| $-b \times \mathrm{gap}$, not a profile likelihood.'
+#| fig-alt: "Left: the estimated slope keeps rising as more iterations \
+#| are allowed. Right: the log-likelihood rises toward zero as the \
+#| slope grows but never reaches it."
 iters = [3, 4, 6, 8, 10, 15, 25, 35]
 coefs = []
 for k in iters:
@@ -255,7 +260,8 @@ number it prints just depends on when it gave up.
 ::: {.column width="58%"}
 ```{python}
 #| echo: false
-#| fig-alt: "Chance of passing against hours studied for four penalty strengths; the curve gets steeper as the penalty weakens."
+#| fig-alt: "Chance of passing against hours studied for four penalty \
+#| strengths; the curve gets steeper as the penalty weakens."
 from sklearn.linear_model import LogisticRegression
 
 grid = pd.DataFrame({"hours": np.linspace(0, 10, 200)})
@@ -285,18 +291,19 @@ with plt.rc_context({"font.size": 13}):
 
 ## Firth's method
 
-A different fix changes the likelihood itself, not a tuning constant.
+Ridge and Firth both penalize the fitting objective, differently.
 
 | | Ridge penalty (`C`) | Firth's penalty |
-|:-------|:-----------------|:-----------------------|
+|:--------|:---------------|:-------------------|
+| Adds | Coefficient penalty | Information-based bias adjustment |
+| Strength | You choose `C` | No `C` to choose |
 | Goal | Better predictions | Less bias, finite estimates |
-| Amount | You choose `C` | No tuning constant |
-| Intervals | Not built for inference | Profile penalized-likelihood |
+| Intervals | Not shown here | Profile penalized-likelihood |
 
 - @firth1993bias: a penalty that reduces bias.
-- @heinze2002solution: finite estimates under separation, and profile
-  penalized-likelihood intervals over Wald intervals.
+- @heinze2002solution: finite estimates, profile intervals.
 - Python: `firthmodels` (not in our shared environment, so no demo).
+
 
 ## Merge categories
 
@@ -320,11 +327,16 @@ c1, s1 = m1.params["C(group)[T.D]"], m1.bse["C(group)[T.D]"]
 c2, s2 = m2.params["C(merged)[T.C or D]"], m2.bse["C(merged)[T.C or D]"]
 n = pd.crosstab(d["passed"], d["group"])
 
+
+def row(k):
+    return " | ".join(str(n.loc[k, g]) for g in "ABCD")
+
+
 print(f"""
 | Study group | A | B | C | D |
 |:-------|--:|--:|--:|--:|
-| Passed | {n.loc[1, "A"]} | {n.loc[1, "B"]} | {n.loc[1, "C"]} | {n.loc[1, "D"]} |
-| Failed | {n.loc[0, "A"]} | {n.loc[0, "B"]} | {n.loc[0, "C"]} | {n.loc[0, "D"]} |
+| Passed | {row(1)} |
+| Failed | {row(0)} |
 
 - **Problem:** D's effect vs group A is {c1:.1f}, std err {s1:,.0f}.
 - **Fix:** pool C and D. The effect becomes {c2:.1f}, std err {s2:.1f}.
