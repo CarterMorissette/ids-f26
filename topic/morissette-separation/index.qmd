@@ -374,7 +374,7 @@ estimates and tests are broken. Fix it, and say what the fix cost.
 ## AI-use disclosure {.smaller}
 
 - **Tool:** Claude (Anthropic).
-- **Assistance:** planning slide structure,improving slide wording, debugging the Python code and figures,
+- **Assistance:** planning slide structure, improving slide wording, debugging the Python code and figures,
   pre-submission review.
 - **Responsibility:** I ran the code, checked the output, interpreted it and take responsibility for the final content and citations.
 
